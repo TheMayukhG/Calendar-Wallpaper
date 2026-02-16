@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Study Tracker Pro - Config Manager</title>
+    <style>
+        :root {
+            /* --- Semantic Palette --- */
+            --bg: #050505;
+            --card: #0a0a0a;
+            --border: #222;
+            
+            --c-primary: #00f2ff;   /* Default Cyan */
+            --c-success: #00ff88;   /* Green */
+            --c-warn: #ffaa00;      /* Orange */
+            --c-danger: #ff3333;    /* Red */
+            --c-text: #eee;
+            --c-dim: #555;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--c-text);
+            font-family: 'Segoe UI Variable Display', 'Segoe UI', sans-serif;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            user-select: none; 
+        }
+
+        /* --- RESPONSIVE CONTAINER --- */
+        #app-shell {
+            width: 90vmin;
+            height: 55vmin;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 3vmin;
+            box-shadow: 0 4vmin 10vmin rgba(0,0,0,0.8);
+            position: relative;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* --- SHARED LAYOUT --- */
+        .view {
+            flex: 1;
+            padding: 4vmin;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.4s;
+            position: absolute;
+            width: 100%; height: 100%; box-sizing: border-box;
+            background: var(--card);
+            overflow: hidden; 
+        }
+
+        .view-hidden { opacity: 0; pointer-events: none; transform: scale(0.95); }
+        .view-active { opacity: 1; pointer-events: all; transform: scale(1); z-index: 5; }
+
+        /* --- HEADER & CONTROLS --- */
+        .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2vmin; flex-shrink: 0; }
+        
+        #streak-display { margin: 0; font-size: 2.5vmin; letter-spacing: 0.2vmin; text-transform: uppercase; color: var(--c-primary); }
+        
+        .toggle-group {
+            background: #111; padding: 0.5vmin; border-radius: 2vmin; border: 1px solid #222; display: flex;
+        }
+        .btn-mode {
+            padding: 0.8vmin 2vmin; border-radius: 1.5vmin; cursor: pointer;
+            font-size: 1.2vmin; color: var(--c-dim); transition: 0.2s;
+        }
+        .btn-mode.active { background: #222; color: var(--c-primary); font-weight: bold; box-shadow: 0 0 1vmin rgba(0, 242, 255, 0.1); }
+        .btn-mode.danger-active { background: #220000; color: var(--c-danger); }
+
+        /* --- MENU SYSTEM --- */
+        #menu-btn {
+            position: absolute; top: 2vmin; right: 2vmin; z-index: 50;
+            width: 3vmin; height: 3vmin;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; color: var(--c-dim); font-size: 2vmin;
+            transition: 0.2s; border-radius: 0.5vmin;
+        }
+        #menu-btn:hover { color: var(--c-text); background: rgba(255,255,255,0.05); }
+
+        #menu-dropdown {
+            position: absolute; top: 6vmin; right: 2vmin; z-index: 51;
+            background: rgba(20,20,20,0.95); backdrop-filter: blur(10px);
+            border: 1px solid var(--border); border-radius: 1vmin;
+            width: 20vmin; box-shadow: 0 2vmin 5vmin rgba(0,0,0,0.5);
+            opacity: 0; pointer-events: none; transform: translateY(-1vmin);
+            transition: 0.2s; display: flex; flex-direction: column; padding: 0.5vmin;
+        }
+        #menu-dropdown.open { opacity: 1; pointer-events: all; transform: translateY(0); }
+        
+        .menu-item {
+            padding: 1vmin 1.5vmin; color: #ccc; cursor: pointer; font-size: 1.2vmin;
+            border-radius: 0.5vmin; transition: 0.1s; display: flex; justify-content: space-between;
+        }
+        .menu-item:hover { background: var(--c-primary); color: #000; }
+        .menu-divider { height: 1px; background: #333; margin: 0.5vmin 0; }
+
+        /* --- CALENDAR GRID --- */
+        .cal-wrapper { display: flex; gap: 4vmin; height: 100%; }
+        .month-col { flex: 1; display: flex; flex-direction: column; }
+        .month-name { font-size: 1.5vmin; color: var(--c-dim); margin-bottom: 1.5vmin; font-weight: 700; letter-spacing: 0.2vmin; }
+        
+        .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.8vmin; }
+        .day-header { font-size: 1vmin; color: var(--c-dim); text-align: center; margin-bottom: 0.5vmin; }
+        
+        .cell {
+            aspect-ratio: 1/1; background: #151515; border-radius: 0.8vmin;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.4vmin; cursor: pointer; position: relative;
+            border: 1px solid transparent; transition: 0.1s;
+        }
+        .cell:hover { background: #222; border-color: var(--c-dim); }
+        .cell.today { border-color: var(--c-text); background: #22222200; }
+        .cell.past { opacity: 0.2; pointer-events: none; }
+        
+        /* States */
+        .cell.target { font-weight: bold; box-shadow: 0 0 1.5vmin rgba(255,255,255, 0.05); }
+        .cell.crossed { color: var(--c-dim); }
+        .cell.crossed::after {
+            content: ''; position: absolute; width: 60%; height: 2px;
+            background: var(--c-success); transform: rotate(-45deg);
+        }
+
+        /* --- TIMELINE (LIST) --- */
+        .timeline-scroll { 
+            overflow-y: auto; 
+            padding-right: 1.5vmin; 
+            flex: 1; 
+            min-height: 0; 
+            padding-bottom: 10vmin; 
+            outline: none; 
+            transform: translateZ(0); 
+            pointer-events: auto;
+        }
+        
+        .timeline-block { display: flex; flex-direction: column; position: relative; margin-bottom: 0; }
+        
+        .gap-track {
+            margin-left: 8vmin; width: 0.4vmin; min-height: 6vmin;
+            background: #1a1a1a; position: relative;
+            border-radius: 1vmin;
+        }
+        .gap-fill {
+            position: absolute; top: 0; left: 0; width: 100%;
+            background: var(--c-success); border-radius: 1vmin;
+            transition: height 0.5s ease;
+        }
+        .gap-label {
+            position: absolute; top: 50%; left: 1.5vmin; transform: translateY(-50%);
+            background: rgba(10,10,10,0.8); backdrop-filter: blur(4px);
+            border: 1px solid #333; padding: 0.5vmin 1.5vmin; border-radius: 1vmin;
+            font-size: 1.2vmin; white-space: nowrap; color: #ccc;
+        }
+        .gap-label strong { color: var(--c-success); }
+
+        .event-row { display: flex; align-items: center; padding: 1vmin 0; z-index: 2; }
+        .ev-date { width: 6vmin; text-align: right; font-size: 1.3vmin; font-weight: bold; color: var(--c-dim); margin-right: 2vmin; }
+        .ev-dot { 
+            width: 1.2vmin; height: 1.2vmin; border-radius: 50%; 
+            background: var(--c-primary); box-shadow: 0 0 1.5vmin var(--c-primary);
+        }
+        .ev-title { font-size: 1.8vmin; margin-left: 2vmin; font-weight: 500; letter-spacing: 0.05vmin;}
+
+        /* --- FOOTER BUTTON --- */
+        #fab-switch {
+            position: absolute; bottom: 3vmin; right: 3vmin; z-index: 20;
+            background: var(--c-text); color: #000; border: none;
+            padding: 1.5vmin 3vmin; border-radius: 4vmin; font-size: 1.4vmin; font-weight: bold;
+            cursor: pointer; box-shadow: 0 0.5vmin 2vmin rgba(255,255,255,0.2);
+            transition: 0.2s;
+        }
+        #fab-switch:hover { transform: translateY(-2px); box-shadow: 0 1vmin 3vmin rgba(255,255,255,0.4); }
+
+        /* --- MODALS & OVERLAYS --- */
+        .overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0,0,0,0.7); backdrop-filter: blur(5px);
+            display: flex; justify-content: center; align-items: center;
+            opacity: 0; pointer-events: none; transition: 0.3s; z-index: 100;
+        }
+        .overlay.open { opacity: 1; pointer-events: all; }
+        
+        .modal-box {
+            background: var(--card); border: 1px solid var(--border);
+            padding: 3vmin; border-radius: 2vmin; width: 45vmin;
+            box-shadow: 0 2vmin 5vmin #000;
+            transform: scale(0.9); transition: 0.3s;
+        }
+        .overlay.open .modal-box { transform: scale(1); }
+        
+        .modal-input {
+            width: 100%; background: #111; border: 1px solid #333; color: white;
+            padding: 1.5vmin; border-radius: 1vmin; font-size: 1.5vmin;
+            margin: 2vmin 0; outline: none; box-sizing: border-box;
+        }
+        .modal-input:focus { border-color: var(--c-primary); }
+
+        /* Updated Color Picker UI */
+        .color-section { margin-bottom: 2vmin; }
+        
+        .color-row { 
+            display: flex; gap: 1vmin; overflow-x: auto; 
+            padding: 0.5vmin 0; scrollbar-width: none; 
+            margin-bottom: 1.5vmin;
+        }
+        .color-row::-webkit-scrollbar { display: none; }
+        
+        .color-dot {
+            width: 3vmin; height: 3vmin; border-radius: 50%; cursor: pointer; flex-shrink: 0;
+            border: 2px solid transparent; transition: 0.2s;
+        }
+        .color-dot.selected { border-color: #fff; transform: scale(1.15); box-shadow: 0 0 1.5vmin rgba(255,255,255,0.2); }
+        
+        .custom-color-controls {
+            display: flex; justify-content: space-between; align-items: center;
+            background: #111; padding: 1vmin 1.5vmin; border-radius: 1.5vmin;
+        }
+        
+        /* Custom Color Input */
+        input[type="color"] {
+            -webkit-appearance: none; border: none; width: 3vmin; height: 3vmin;
+            border-radius: 50%; overflow: hidden; padding: 0; cursor: pointer; background: none;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; border: 1px solid #333; }
+
+        /* Pastel/Raw Toggle */
+        .mode-toggle {
+            display: flex; align-items: center; gap: 1vmin; cursor: pointer;
+            font-size: 1.2vmin; color: #888;
+        }
+        .toggle-switch {
+            position: relative; width: 4vmin; height: 2vmin; background: #333;
+            border-radius: 1vmin; transition: 0.3s;
+        }
+        .toggle-switch::after {
+            content:''; position: absolute; top: 0.2vmin; left: 0.2vmin;
+            width: 1.6vmin; height: 1.6vmin; background: #888; border-radius: 50%;
+            transition: 0.3s;
+        }
+        /* Active State (Pastel) */
+        .mode-toggle.active .toggle-switch { background: var(--c-primary); }
+        .mode-toggle.active .toggle-switch::after { transform: translateX(2vmin); background: #fff; }
+        .mode-toggle.active span { color: var(--c-primary); font-weight: bold; }
+
+        .modal-btns { display: flex; justify-content: flex-end; gap: 1vmin; }
+        .m-btn { padding: 1vmin 2vmin; border-radius: 0.8vmin; border: none; cursor: pointer; font-size: 1.2vmin; font-weight: bold; }
+        .m-confirm { background: var(--c-primary); color: #000; transition: background 0.3s;}
+        .m-cancel { background: transparent; color: #888; border: 1px solid #333; }
+
+        /* --- EXPORT MODAL CSS --- */
+        .export-area {
+            width: 100%; height: 15vmin; background: #111; color: var(--c-primary);
+            border: 1px solid #333; border-radius: 1vmin; padding: 1vmin;
+            font-family: monospace; font-size: 1.2vmin; resize: none; outline: none;
+            box-sizing: border-box; margin-bottom: 1vmin;
+        }
+        .export-area:focus { border-color: var(--c-primary); }
+
+        /* --- INFO CARD (Double Click) --- */
+        #info-card-content { text-align: center; }
+        #info-subject { font-size: 3vmin; margin: 0 0 1vmin 0; text-transform: uppercase; letter-spacing: 2px;}
+        #info-date { color: #888; font-size: 1.5vmin; margin-bottom: 3vmin; }
+        #info-countdown { 
+            font-size: 5vmin; font-weight: bold; 
+            margin-bottom: 0.5vmin;
+            text-shadow: 0 0 3vmin rgba(0,0,0,0.5);
+        }
+        #info-subtext { color: #666; font-size: 1.2vmin; text-transform: uppercase; letter-spacing: 1px; }
+
+        /* --- TOAST --- */
+        #toast {
+            position: absolute; top: 2vmin; left: 50%; transform: translateX(-50%) translateY(-5vmin);
+            background: #111; border: 1px solid var(--c-success); color: var(--c-success);
+            padding: 1vmin 3vmin; border-radius: 2vmin; font-size: 1.2vmin;
+            opacity: 0; transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 200; pointer-events: none;
+        }
+        #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+        ::-webkit-scrollbar { width: 1.2vmin; }
+        ::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); border-radius: 1vmin; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 1vmin; border: 0.3vmin solid var(--card); }
+        ::-webkit-scrollbar-thumb:hover { background: var(--c-primary); }
+
+    </style>
+</head>
+<body>
+
+    <div id="app-shell">
+        
+        <!-- MENU SYSTEM -->
+        <div id="menu-btn" onclick="Menu.toggle()">☰</div>
+        <div id="menu-dropdown">
+            <div class="menu-item" onclick="Config.export()">
+                <span>Save Config</span>
+                <span>↓</span>
+            </div>
+            <div class="menu-divider"></div>
+            <div class="menu-item" onclick="document.getElementById('file-input').click()">
+                <span>Import Config</span>
+                <span>↑</span>
+            </div>
+        </div>
+        <!-- Hidden input for file loading -->
+        <input type="file" id="file-input" style="display:none" accept=".json" onchange="Config.import(this)">
+
+        <!-- VIEW 1: CALENDAR -->
+        <div id="v-cal" class="view view-active">
+            <div class="top-bar">
+                <div class="toggle-group">
+                    <div id="btn-cross" class="btn-mode active" onclick="App.setMode('cross')">Cross Days</div>
+                    <div id="btn-target" class="btn-mode" onclick="App.setMode('target')">Set Exam</div>
+                </div>
+            </div>
+            <div class="cal-wrapper">
+                <div class="month-col" id="m-curr"></div>
+                <div class="month-col" id="m-next"></div>
+            </div>
+        </div>
+
+        <!-- VIEW 2: TIMELINE -->
+        <div id="v-list" class="view view-hidden">
+            <div class="top-bar">
+                <h2>Study Timeline</h2>
+                <div style="font-size: 1.2vmin; color: var(--c-dim)">Based on Calendar progress</div>
+            </div>
+            <div id="timeline-list" class="timeline-scroll" tabindex="0"></div>
+        </div>
+
+        <button id="fab-switch" onclick="App.toggleView()">View Timeline</button>
+    </div>
+
+    <!-- MODAL: ADD TARGET -->
+    <div id="modal-overlay" class="overlay">
+        <div class="modal-box">
+            <h3 style="margin:0; font-size:2vmin; color:white">Add Target</h3>
+            <input type="text" id="modal-inp" class="modal-input" placeholder="e.g. Physics Final" autocomplete="off">
+            
+            <div class="color-section">
+                <div style="font-size:1.2vmin; color:#666; margin-bottom:1vmin">Select Color:</div>
+                <div class="color-row" id="color-picker">
+                    <!-- Generated by JS -->
+                </div>
+                
+                <div class="custom-color-controls">
+                    <div style="display:flex; align-items:center; gap:1vmin; font-size:1.2vmin; color:#888;">
+                        <input type="color" id="custom-color-inp" value="#00f2ff">
+                        <span>Custom Hex</span>
+                    </div>
+
+                    <div class="mode-toggle" id="pastel-toggle" onclick="Modal.togglePastel()">
+                        <span>Raw</span>
+                        <div class="toggle-switch"></div>
+                        <span>Pastel</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-btns">
+                <button class="m-btn m-cancel" onclick="Modal.close()">Cancel</button>
+                <button class="m-btn m-confirm" id="modal-submit-btn" onclick="Modal.submit()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: EXPORT CONFIG -->
+    <div id="export-overlay" class="overlay">
+        <div class="modal-box">
+            <h3 style="margin:0; font-size:2vmin; color:white">Export Config</h3>
+            <p style="font-size:1.2vmin; color:#888; margin:1vmin 0;">Copy this code or try downloading:</p>
+            <textarea id="export-area" class="export-area" readonly></textarea>
+            
+            <div class="modal-btns" style="margin-top:2vmin">
+                <button class="m-btn m-cancel" onclick="document.getElementById('export-overlay').classList.remove('open')">Close</button>
+                <button class="m-btn m-confirm" onclick="Config.download()">Download File</button>
+                <button class="m-btn m-confirm" style="background:white; color:black" onclick="Config.copy()">Copy Text</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: INFO CARD (Double Click) -->
+    <div id="info-overlay" class="overlay" onclick="InfoCard.close()">
+        <div class="modal-box" id="info-card-content" onclick="event.stopPropagation()">
+            <h1 id="info-subject">Subject</h1>
+            <div id="info-date">Date</div>
+            <div style="height:1px; background:#222; margin: 2vmin 0;"></div>
+            <div id="info-countdown">0</div>
+            <div id="info-subtext">Days Remaining</div>
+            <div class="modal-btns" style="justify-content:center; margin-top:3vmin">
+                <button class="m-btn m-cancel" onclick="InfoCard.close()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast">Changes Saved</div>
+
+<script>
+/**
+ * APP ARCHITECTURE
+ */
+
+const ColorUtils = {
+    hexToHSL: (H) => {
+        let r = 0, g = 0, b = 0;
+        if (H.length == 4) {
+            r = "0x" + H[1] + H[1];
+            g = "0x" + H[2] + H[2];
+            b = "0x" + H[3] + H[3];
+        } else if (H.length == 7) {
+            r = "0x" + H[1] + H[2];
+            g = "0x" + H[3] + H[4];
+            b = "0x" + H[5] + H[6];
+        }
+        r /= 255; g /= 255; b /= 255;
+        let cmin = Math.min(r,g,b), cmax = Math.max(r,g,b), delta = cmax - cmin;
+        let h = 0, s = 0, l = 0;
+
+        if (delta == 0) h = 0;
+        else if (cmax == r) h = ((g - b) / delta) % 6;
+        else if (cmax == g) h = (b - r) / delta + 2;
+        else h = (r - g) / delta + 4;
+
+        h = Math.round(h * 60);
+        if (h < 0) h += 360;
+        l = (cmax + cmin) / 2;
+        s = delta == 0 ? 0 : delta / (1 - Math.abs(2 * l - 1));
+        s = +(s * 100).toFixed(1);
+        l = +(l * 100).toFixed(1);
+
+        return {h, s, l};
+    },
+
+    toPastel: (hex) => {
+        const hsl = ColorUtils.hexToHSL(hex);
+        const newS = 80; 
+        const newL = 70; 
+        return `hsl(${hsl.h}, ${newS}%, ${newL}%)`;
+    },
+    
+    validate: (c) => /^#([0-9A-F]{3}){1,2}$/i.test(c) ? c : '#00f2ff'
+};
+
+const Presets = [
+    '#ff0055', '#ff4400', '#ffaa00', '#ffdd00', '#bfff00', '#00ff88', 
+    '#00ffcc', '#00f2ff', '#0088ff', '#5500ff', '#aa00ff', '#ff00ff'
+];
+
+const Storage = {
+    PREFIX: 'st_v1_',
+    formatKey: (type, dateObj) => {
+        const y = dateObj.getFullYear();
+        const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const d = String(dateObj.getDate()).padStart(2, '0');
+        return `${Storage.PREFIX}${type}_${y}-${m}-${d}`;
+    },
+    get: (key) => localStorage.getItem(key),
+    set: (key, val) => localStorage.setItem(key, val),
+    del: (key) => localStorage.removeItem(key),
+    getAll: (type) => {
+        const items = [];
+        const p = `${Storage.PREFIX}${type}_`;
+        for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k.startsWith(p)) {
+                const dateStr = k.replace(p, '');
+                let val = localStorage.getItem(k);
+                try { val = JSON.parse(val); } catch(e) {}
+                if (typeof val === 'string') val = { title: val, color: '#00f2ff' };
+                items.push({ date: new Date(dateStr), dateStr, val: val });
+            }
+        }
+        return items.sort((a,b) => a.date - b.date);
+    }
+};
+
+const UI = {
+    toast: (msg) => {
+        const t = document.getElementById('toast');
+        t.innerText = msg;
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 2000);
+    }
+};
+
+const Menu = {
+    el: document.getElementById('menu-dropdown'),
+    toggle: () => {
+        Menu.el.classList.toggle('open');
+    },
+    close: () => {
+        Menu.el.classList.remove('open');
+    }
+};
+
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('#menu-btn') && !e.target.closest('#menu-dropdown')) {
+        Menu.close();
+    }
+});
+
+const Config = {
+    export: () => {
+        const data = {};
+        for(let i=0; i<localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if(k.startsWith(Storage.PREFIX)) {
+                data[k] = localStorage.getItem(k);
+            }
+        }
+        const json = JSON.stringify(data, null, 2);
+        
+        document.getElementById('export-area').value = json;
+        document.getElementById('export-overlay').classList.add('open');
+        Menu.close();
+    },
+    
+    download: () => {
+        const json = document.getElementById('export-area').value;
+        const blob = new Blob([json], {type : 'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `study_tracker_backup_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        UI.toast("Download Started");
+    },
+    
+    copy: () => {
+        const area = document.getElementById('export-area');
+        area.select();
+        document.execCommand('copy');
+        UI.toast("Copied to Clipboard!");
+    },
+    
+    import: (input) => {
+        const file = input.files[0];
+        if(!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = JSON.parse(e.target.result);
+                let count = 0;
+                Object.keys(data).forEach(k => {
+                    if(k.startsWith(Storage.PREFIX)) {
+                        localStorage.setItem(k, data[k]);
+                        count++;
+                    }
+                });
+                
+                if(count > 0) {
+                    UI.toast(`Loaded ${count} items`);
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    UI.toast("No valid data found");
+                }
+            } catch(err) {
+                console.error(err);
+                UI.toast("Error reading file");
+            }
+        };
+        reader.readAsText(file);
+        input.value = '';
+        Menu.close();
+    }
+};
+
+const Modal = {
+    overlay: document.getElementById('modal-overlay'),
+    input: document.getElementById('modal-inp'),
+    picker: document.getElementById('color-picker'),
+    customInp: document.getElementById('custom-color-inp'),
+    submitBtn: document.getElementById('modal-submit-btn'),
+    toggleEl: document.getElementById('pastel-toggle'),
+    
+    activeCallback: null,
+    rawColor: Presets[7], 
+    isPastel: false,      
+    
+    init: () => {
+        Modal.picker.innerHTML = '';
+        Presets.forEach(c => {
+            const dot = document.createElement('div');
+            dot.className = 'color-dot';
+            dot.style.background = c;
+            dot.onclick = () => Modal.selectColor(c, dot);
+            Modal.picker.appendChild(dot);
+        });
+        
+        Modal.customInp.addEventListener('input', (e) => {
+            Modal.selectColor(e.target.value, null, true);
+        });
+
+        Modal.input.addEventListener('keypress', (e) => {
+            if(e.key === 'Enter') Modal.submit();
+        });
+    },
+
+    togglePastel: () => {
+        Modal.isPastel = !Modal.isPastel;
+        if(Modal.isPastel) Modal.toggleEl.classList.add('active');
+        else Modal.toggleEl.classList.remove('active');
+        
+        Modal.updatePreview();
+    },
+
+    selectColor: (c, el, isCustom = false) => {
+        Modal.rawColor = c;
+        Array.from(Modal.picker.children).forEach(child => child.classList.remove('selected'));
+        if(el) el.classList.add('selected');
+        if(!isCustom) Modal.customInp.value = c;
+        Modal.updatePreview();
+    },
+
+    updatePreview: () => {
+        const finalColor = Modal.isPastel ? ColorUtils.toPastel(Modal.rawColor) : Modal.rawColor;
+        Modal.submitBtn.style.background = finalColor;
+        Modal.submitBtn.style.color = '#000';
+    },
+    
+    open: (placeholder, callback) => {
+        Modal.input.value = '';
+        Modal.input.placeholder = placeholder;
+        Modal.activeCallback = callback;
+        
+        Modal.isPastel = false;
+        Modal.toggleEl.classList.remove('active');
+        Modal.selectColor(Presets[7], Modal.picker.children[7]); 
+
+        Modal.overlay.classList.add('open');
+        setTimeout(() => Modal.input.focus(), 100);
+    },
+    close: () => {
+        Modal.overlay.classList.remove('open');
+        Modal.activeCallback = null;
+    },
+    submit: () => {
+        if(Modal.activeCallback && Modal.input.value.trim()) {
+            const finalColor = Modal.isPastel ? ColorUtils.toPastel(Modal.rawColor) : Modal.rawColor;
+            Modal.activeCallback(Modal.input.value.trim(), finalColor);
+        }
+        Modal.close();
+    }
+};
+
+const InfoCard = {
+    overlay: document.getElementById('info-overlay'),
+    open: (data, dateObj) => {
+        const today = new Date(); today.setHours(0,0,0,0);
+        const target = new Date(dateObj); target.setHours(0,0,0,0);
+        const diff = Math.ceil((target - today) / (1000 * 60 * 60 * 24));
+        
+        const card = document.getElementById('info-card-content');
+        card.style.borderColor = data.color;
+        card.style.boxShadow = `0 2vmin 5vmin ${data.color}20`; 
+
+        document.getElementById('info-subject').innerText = data.title;
+        document.getElementById('info-subject').style.color = data.color;
+        
+        document.getElementById('info-date').innerText = dateObj.toLocaleDateString('default', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+        
+        document.getElementById('info-countdown').innerText = diff;
+        document.getElementById('info-countdown').style.color = data.color;
+        
+        document.getElementById('info-subtext').innerText = diff < 0 ? "DAYS AGO" : "DAYS REMAINING";
+
+        InfoCard.overlay.classList.add('open');
+    },
+    close: () => {
+        InfoCard.overlay.classList.remove('open');
+    }
+};
+
+
+const App = {
+    view: 'calendar', 
+    mode: 'cross',    
+    now: new Date(),
+
+    init: () => {
+        Modal.init();
+        App.renderCalendar();
+        App.calcStreak();
+    },
+
+    toggleView: () => {
+        const vCal = document.getElementById('v-cal');
+        const vList = document.getElementById('v-list');
+        const btn = document.getElementById('fab-switch');
+        const timelineEl = document.getElementById('timeline-list');
+
+        if(App.view === 'calendar') {
+            App.view = 'list';
+            vCal.classList.remove('view-active'); vCal.classList.add('view-hidden');
+            vList.classList.remove('view-hidden'); vList.classList.add('view-active');
+            btn.innerText = "Back to Calendar";
+            App.renderTimeline();
+            setTimeout(() => { timelineEl.focus(); }, 100);
+        } else {
+            App.view = 'calendar';
+            vList.classList.remove('view-active'); vList.classList.add('view-hidden');
+            vCal.classList.remove('view-hidden'); vCal.classList.add('view-active');
+            btn.innerText = "View Timeline";
+            App.renderCalendar();
+            App.calcStreak();
+        }
+    },
+
+    setMode: (m) => {
+        App.mode = m;
+        const btnC = document.getElementById('btn-cross');
+        const btnT = document.getElementById('btn-target');
+        
+        if(m === 'cross') {
+            btnC.classList.add('active');
+            btnT.classList.remove('active');
+            btnT.classList.remove('danger-active');
+        } else {
+            btnC.classList.remove('active');
+            btnT.classList.add('active');
+            btnT.classList.add('danger-active'); 
+        }
+    },
+
+    renderCalendar: () => {
+        const d1 = new Date(App.now.getFullYear(), App.now.getMonth(), 1);
+        const d2 = new Date(App.now.getFullYear(), App.now.getMonth() + 1, 1);
+        App.drawMonth(d1, 'm-curr');
+        App.drawMonth(d2, 'm-next');
+    },
+
+    drawMonth: (dObj, elId) => {
+        const container = document.getElementById(elId);
+        container.innerHTML = ''; 
+
+        const mName = dObj.toLocaleString('default', { month: 'long' }).toUpperCase();
+        
+        const h = document.createElement('div');
+        h.className = 'month-name'; h.innerText = mName;
+        container.appendChild(h);
+
+        const grid = document.createElement('div');
+        grid.className = 'grid';
+        
+        ['S','M','T','W','T','F','S'].forEach(day => {
+            const dh = document.createElement('div');
+            dh.className = 'day-header'; dh.innerText = day;
+            grid.appendChild(dh);
+        });
+
+        const startDay = new Date(dObj.getFullYear(), dObj.getMonth(), 1).getDay();
+        for(let i=0; i<startDay; i++) grid.appendChild(document.createElement('div'));
+
+        const daysInMonth = new Date(dObj.getFullYear(), dObj.getMonth() + 1, 0).getDate();
+        const todayKey = Storage.formatKey('x', App.now).split('_')[1];
+
+        for(let i=1; i<=daysInMonth; i++) {
+            const currentD = new Date(dObj.getFullYear(), dObj.getMonth(), i);
+            const keyDate = Storage.formatKey('x', currentD).split('_')[1]; 
+            
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.innerText = i;
+
+            if(keyDate === todayKey) cell.classList.add('today');
+            
+            const isPast = currentD.setHours(0,0,0,0) < App.now.setHours(0,0,0,0);
+            if(isPast) cell.classList.add('past');
+
+            const tKey = Storage.formatKey('target', currentD);
+            const cKey = Storage.formatKey('cross', currentD);
+            
+            const rawTarget = Storage.get(tKey);
+            let targetData = null;
+            if(rawTarget) {
+                try { targetData = JSON.parse(rawTarget); } catch(e) { targetData = { title: rawTarget, color: '#00f2ff' }; }
+                if(typeof targetData === 'string') targetData = { title: targetData, color: '#00f2ff' };
+                
+                cell.classList.add('target');
+                cell.style.borderColor = targetData.color;
+                cell.style.color = targetData.color;
+                
+                cell.ondblclick = (e) => {
+                    e.stopPropagation();
+                    InfoCard.open(targetData, currentD);
+                };
+            }
+
+            if(Storage.get(cKey)) cell.classList.add('crossed');
+
+            cell.onclick = () => {
+                if(App.mode === 'target') {
+                    if(rawTarget) {
+                        if(confirm(`Delete ${targetData.title}?`)) { 
+                            Storage.del(tKey);
+                            cell.classList.remove('target');
+                            cell.style.borderColor = 'transparent'; 
+                            cell.style.color = ''; 
+                            cell.ondblclick = null;
+                            UI.toast("Exam Removed");
+                        }
+                    } else {
+                        Modal.open("Exam Name (e.g. Physics)", (val, color) => {
+                            const payload = JSON.stringify({ title: val, color: color });
+                            Storage.set(tKey, payload);
+                            cell.classList.add('target');
+                            cell.style.borderColor = color;
+                            cell.style.color = color;
+                            UI.toast("Target Set!");
+                            cell.ondblclick = (e) => { e.stopPropagation(); InfoCard.open({title:val, color:color}, currentD); };
+                        });
+                    }
+                } else {
+                    if(cell.classList.contains('crossed')) {
+                        Storage.del(cKey);
+                        cell.classList.remove('crossed');
+                    } else {
+                        Storage.set(cKey, '1');
+                        cell.classList.add('crossed');
+                    }
+                    App.calcStreak();
+                }
+            };
+            grid.appendChild(cell);
+        }
+        container.appendChild(grid);
+    },
+
+    calcStreak: () => {
+        let streak = 0;
+        let d = new Date();
+        const todayK = Storage.formatKey('cross', d);
+        if(!Storage.get(todayK)) d.setDate(d.getDate() - 1);
+
+        while(true) {
+            if(Storage.get(Storage.formatKey('cross', d))) {
+                streak++;
+                d.setDate(d.getDate() - 1);
+            } else {
+                break;
+            }
+        }
+        document.getElementById('streak-display').innerText = `🔥 ${streak} Day Streak`;
+    },
+
+    renderTimeline: () => {
+        const list = document.getElementById('timeline-list');
+        list.innerHTML = '';
+
+        const targets = Storage.getAll('target');
+        const todayZero = new Date(); todayZero.setHours(0,0,0,0);
+        const futureTargets = targets.filter(t => t.date >= todayZero);
+
+        if(futureTargets.length > 0) {
+            const firstT = futureTargets[0];
+            if(firstT.date > todayZero) {
+                 const gapHtml = App.createGapBar(todayZero, firstT.date, true, firstT.val.color);
+                 list.appendChild(gapHtml);
+            }
+        } else {
+            list.innerHTML = '<div style="text-align:center; margin-top:10vmin; color:#444;">No upcoming exams.<br>Add some in Calendar view.</div>';
+            return;
+        }
+
+        targets.forEach((t, idx) => {
+            const row = document.createElement('div');
+            row.className = 'timeline-block';
+            row.innerHTML = `
+                <div class="event-row" style="${t.date < todayZero ? 'opacity:0.5' : ''}">
+                    <div class="ev-date">${t.date.getDate()} ${t.date.toLocaleString('default',{month:'short'})}</div>
+                    <div class="ev-dot" style="background:${t.val.color}; box-shadow:0 0 1.5vmin ${t.val.color}"></div>
+                    <div class="ev-title">${t.val.title}</div>
+                </div>
+            `;
+            list.appendChild(row);
+
+            if(idx < targets.length - 1) {
+                const nextT = targets[idx+1];
+                const gapHtml = App.createGapBar(t.date, nextT.date, false, nextT.val.color);
+                list.appendChild(gapHtml);
+            }
+        });
+    },
+
+    createGapBar: (startDate, endDate, isCurrentWindow, targetColor) => {
+        const stats = App.calcGapStats(startDate, endDate);
+        const pct = Math.min(100, (stats.crossed / stats.total) * 100);
+        
+        let barColor = targetColor || 'var(--c-success)';
+        let labelColor = targetColor || 'var(--c-success)';
+        
+        if(stats.remaining <= 1) { 
+            labelColor = 'var(--c-danger)'; 
+            barColor = 'var(--c-danger)'; 
+        }
+
+        const div = document.createElement('div');
+        div.className = 'gap-track';
+        div.innerHTML = `
+            <div class="gap-fill" style="height:${pct}%; background:${barColor}"></div>
+            <div class="gap-label" style="border-color:${labelColor}">
+                <strong style="color:${labelColor}">${stats.remaining} Days</strong>
+                ${isCurrentWindow ? 'to go' : 'gap'}
+            </div>
+        `;
+        return div;
+    },
+
+    calcGapStats: (d1, d2) => {
+        let total = 0;
+        let crossed = 0;
+        let curr = new Date(d1);
+        curr.setDate(curr.getDate() + 1);
+
+        const end = new Date(d2); end.setHours(0,0,0,0);
+
+        while(curr < end) {
+            total++;
+            const k = Storage.formatKey('cross', curr);
+            if(Storage.get(k)) crossed++;
+            curr.setDate(curr.getDate() + 1);
+        }
+        return { total, crossed, remaining: total - crossed };
+    }
+};
+
+App.init();
+
+</script>
+</body>
+</html>
