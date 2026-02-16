@@ -4,7 +4,7 @@
 
 **Study Tracker Pro** is an interactive browser-based productivity wallpaper designed for use with Lively Wallpaper. It combines a minimal calendar interface, exam tracking, and progress visualization into a single lightweight HTML application that runs directly as a desktop wallpaper.
 
-The application is intended to help users maintain study discipline, track upcoming exams or milestones, and visualize daily progress without disrupting their workspace.
+The application helps users maintain study discipline, track upcoming exams or milestones, and visualize daily progress without disrupting their workspace.
 
 This project demonstrates UI architecture, local persistence design, and interactive state-driven rendering using vanilla web technologies.
 
@@ -50,7 +50,7 @@ This project demonstrates UI architecture, local persistence design, and interac
 ## Technology Stack
 
 * HTML5
-* CSS3 (custom properties, responsive layout, transitions)
+* CSS3
 * Vanilla JavaScript
 * Browser Local Storage API
 
@@ -58,25 +58,44 @@ No frameworks or third-party libraries are used.
 
 ---
 
-## Usage with Lively Wallpaper
+## Setup & Usage with Lively Wallpaper
 
-1. Install and launch Lively Wallpaper.
-2. Add a new wallpaper.
-3. Select the provided HTML file.
-4. Set it as your active wallpaper.
+### Requirements
 
-The application will run interactively on the desktop background.
+* Windows system
+* Installed copy of **Lively Wallpaper**
+
+### Adding the Wallpaper
+
+1. Launch Lively Wallpaper.
+2. Click **Add Wallpaper**.
+3. Choose **Browse**.
+4. Select the provided HTML file (`index.html` or project file).
+5. Confirm the selection.
+6. Click the wallpaper thumbnail in the library to activate it.
+
+The application will now run interactively on your desktop background.
 
 ---
 
-## Controls
+### Recommended Settings (Optional)
+
+For optimal responsiveness:
+
+* Enable interaction forwarding in Lively settings.
+* Set wallpaper scaling to **Fit** or **Fill** depending on display ratio.
+* Avoid clearing browser cache or wallpaper data unless you intend to reset progress.
+
+---
+
+### Basic Controls
 
 | Action              | Description                 |
 | ------------------- | --------------------------- |
 | Click (Cross Mode)  | Toggle study day completion |
 | Click (Target Mode) | Add or remove target        |
-| Double Click Target | Open countdown info         |
-| Menu                | Import/Export configuration |
+| Double Click Target | Open countdown information  |
+| Menu Button         | Import/Export configuration |
 | View Timeline       | Switch visualization mode   |
 
 ---
@@ -92,7 +111,7 @@ Single-file implementation:
   * Application logic
   * State management
 
-This architecture was intentionally kept self-contained for portability and ease of deployment within wallpaper environments.
+The architecture is intentionally self-contained for portability and seamless deployment within wallpaper environments.
 
 ---
 
@@ -102,15 +121,15 @@ This architecture was intentionally kept self-contained for portability and ease
 * Immediate visual feedback
 * Lightweight runtime footprint
 * Offline-first operation
-* Clean separation of UI modules within a single-page structure
+* Clean modular organization within a single-page structure
 
 ---
 
 ## Limitations
 
 * Desktop-focused interaction model
-* Relies on browser localStorage (clearing cache removes data)
-* No cloud sync
+* Data stored locally (clearing cache removes progress)
+* No cloud synchronization
 
 ---
 
